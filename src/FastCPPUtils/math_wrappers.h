@@ -31,5 +31,6 @@ struct EigenResult
  * Returns all the eigenvalues and eigenvectors of a 3x3 matrix.
  */
 std::vector<EigenResult> GetEigens(const double matrix[3][3]);
+std::vector<EigenResult> GetEigens2D(const double matrix[3][3], const double v1[3], const double v2[3]);
 
 #endif

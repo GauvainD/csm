@@ -2,7 +2,7 @@ import sys
 
 import numpy as np
 from csm.fast import CythonPermuter, SinglePermPermuter
-from csm.fast import calc_ref_plane
+from csm.fast import calc_ref_plane, calc_ref_plane_prochirality
 
 from csm.calculations.basic_calculations import check_perm_cycles, now, run_time
 from csm.calculations.constants import MIN_DOUBLE, MAX_DOUBLE
@@ -59,7 +59,8 @@ class ExactStatistics:
 
 
 class ExactCalculation(BaseCalculation):
-    def __init__(self, operation, molecule, keep_structure=False, perm=None, no_constraint=False, callback_func=None,
+    def __init__(self, operation, molecule, keep_structure=False, perm=None,
+                 no_constraint=False, callback_func=None, prochirality=False,
                  *args, **kwargs):
         """
         A class for running the exact CSM Algorithm
@@ -73,12 +74,15 @@ class ExactCalculation(BaseCalculation):
         :param timeout: default 300, the number of seconds the function will run before timing out
         :param callback_func: default None, this function is called for every single permutation calculated with an argument of a single 
         CSMState, can be used for printing in-progress reports, outputting to an excel, etc.
+        :param prochirality: Indicates whether we want a measure of chirality
+        or prochirality.
         """
         super().__init__(operation, molecule)
         self.keep_structure = keep_structure
         self.perm = perm
         self.no_constraint = no_constraint
         self.callback_func = callback_func
+        self.prochirality = prochirality
 
     def calculate(self, timeout=300, *args, **kwargs):
         best_result=super().calculate(timeout)
@@ -86,6 +90,61 @@ class ExactCalculation(BaseCalculation):
         overall_stats["runtime"] = run_time(self.start_time)
         self._csm_result = CSMResult(best_result, self.operation, overall_stats=overall_stats)
         return self.result
+
+    def _create_permuter(self, op, timeout):
+        op_type=op.type
+        op_order=op.order
+        molecule=self.molecule
+        keep_structure=self.keep_structure
+        perm=self.perm
+        no_constraint=self.no_constraint
+        if perm:
+            perm_arr = np.array(perm, dtype="long")
+            if (perm_arr >= 0).all():
+                permuter = SinglePermPermuter(perm_arr, molecule, op_order, op_type)
+            else:
+                raise ValueError("The permutation in the function '_calculate' contains negative numbers: \n{}".format(perm_arr))
+        else:
+            permuter = ConstraintPermuter(molecule, op_order, op_type, keep_structure, timeout=timeout)
+            if no_constraint:
+                permuter = CythonPermuter(molecule, op_order, op_type, keep_structure, timeout=timeout)
+        return permuter
+
+    def _calculate_internal(self, op, timeout, permuter, fixed_vectors):
+        op_type=op.type
+        op_order=op.order
+        molecule=self.molecule
+        keep_structure=self.keep_structure
+        perm=self.perm
+        no_constraint=self.no_constraint
+        prochirality=self.prochirality
+
+        best_csm = CSMState(molecule=molecule, op_type=op_type, op_order=op_order, csm=MAX_DOUBLE)
+        traced_state = CSMState(molecule=molecule, op_type=op_type, op_order=op_order)
+        permuter.permute()
+        for calc_state in permuter.permute():
+            if permuter.count % 1000000 == 0:
+                print("calculated for", int(permuter.count / 1000000), "million permutations thus far...\t Time:",
+                      run_time(self.start_time))
+            if not prochirality or fixed_vectors is None:
+                csm, dir, v1, v2 = calc_ref_plane(op_order, op_type == 'CS',
+                                                  calc_state, prochirality and
+                                                  fixed_vectors is None)
+            else:
+                csm, dir, v1, v2 = calc_ref_plane_prochirality(op_order, calc_state, fixed_vectors[0],
+                                            fixed_vectors[1])
+
+            print(csm, dir, v1, v2)
+            if self.callback_func:
+                traced_state = traced_state._replace(csm=csm, perm=calc_state.perm, dir=dir)
+                traced_state.serial = permuter.count
+                self.callback_func(traced_state)
+
+            if csm < best_csm.csm:
+                best_csm = best_csm._replace(csm=csm, dir=dir, perm=list(calc_state.perm))
+                if abs(csm) < 1e-9:
+                    return best_csm, True, v1, v2
+        return best_csm, False, None, None
 
     def _calculate(self, op, timeout):
         """
@@ -105,35 +164,20 @@ class ExactCalculation(BaseCalculation):
         keep_structure=self.keep_structure
         perm=self.perm
         no_constraint=self.no_constraint
+        prochirality=self.prochirality
 
-        best_csm = CSMState(molecule=molecule, op_type=op_type, op_order=op_order, csm=MAX_DOUBLE)
-        traced_state = CSMState(molecule=molecule, op_type=op_type, op_order=op_order)
+        permuter = self._create_permuter(op, timeout)
 
-        if perm:
-            perm_arr = np.array(perm, dtype="long")
-            if (perm_arr >= 0).all():
-                permuter = SinglePermPermuter(perm_arr, molecule, op_order, op_type)
-            else:
-                raise ValueError("The permutation in the function '_calculate' contains negative numbers: \n{}".format(perm_arr))
-        else:
-            permuter = ConstraintPermuter(molecule, op_order, op_type, keep_structure, timeout=timeout)
-            if no_constraint:
-                permuter = CythonPermuter(molecule, op_order, op_type, keep_structure, timeout=timeout)
-
-        permuter.permute()
-        for calc_state in permuter.permute():
-            if permuter.count % 1000000 == 0:
-                print("calculated for", int(permuter.count / 1000000), "million permutations thus far...\t Time:",
-                      run_time(self.start_time))
-            csm, dir = calc_ref_plane(op_order, op_type == 'CS', calc_state)
-
-            if self.callback_func:
-                traced_state = traced_state._replace(csm=csm, perm=calc_state.perm, dir=dir)
-                traced_state.serial = permuter.count
-                self.callback_func(traced_state)
-
-            if csm < best_csm.csm:
-                best_csm = best_csm._replace(csm=csm, dir=dir, perm=list(calc_state.perm))
+        fixed_vectors = None
+        best_csm, zero_chirality, v1, v2 = self._calculate_internal(op, timeout,
+                                                                    permuter,
+                                                                    fixed_vectors)
+        if prochirality and zero_chirality:
+            permuter = self._create_permuter(op, timeout)
+            fixed_vectors=[v1, v2]
+            best_csm, zero_chirality, v1, v2 = self._calculate_internal(op, timeout,
+                                                                        permuter,
+                                                                        fixed_vectors)
 
         self.statistics = ExactStatistics(permuter)
 

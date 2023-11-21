@@ -8,7 +8,7 @@ import numpy
 import os
 
 FAST_CPPUTILS_DIR = "../../FastCPPUtils"
-EIGEN_INCLUDE_DIR = "../../../include"
+EIGEN_INCLUDE_DIR = "../../include"
 
 extra_compile_args = []
 extra_link_args = []

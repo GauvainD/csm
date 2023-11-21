@@ -168,7 +168,48 @@ cpdef get_lambda_max(Vector3D lambdas, Vector3D m_t_B_2, log=False):
 def external_get_eigens(np.ndarray[DTYPE_t, ndim=2, mode="c"] A, np.ndarray[DTYPE_t, ndim=2, mode="c"] m, np.ndarray[DTYPE_t, ndim=1, mode="c"] lambdas):
    fastcpp.GetEigens( <double (*)[3]>A.data,  <double (*)[3]>m.data, <double *>lambdas.data)
 
-cpdef calc_ref_plane(int op_order, bool is_op_cs, CalcState calc_state):
+cpdef calc_ref_plane_prochirality(int op_order, CalcState calc_state, np.ndarray[DTYPE_t, ndim=1, mode="c"] v1, np.ndarray[DTYPE_t, ndim=1, mode="c"] v2):
+    cdef double vectors[2][2]
+    cdef double lambdas[2]
+    fastcpp.GetEigens2D(<double (*)[3]>calc_state.A.buf, <double *>v1.data,
+                        <double *>v2.data, <double (*)[2]>vectors, <double *>lambdas)
+    print(lambdas)
+    cpdef double lambda_max = lambdas[0];
+    index = 0
+    if lambda_max < lambdas[1]:
+        lambda_max = lambdas[1]
+        index = 1
+    dir = np.array([vectors[index][0], vectors[index][1], 0.0])
+
+    csm = calc_state.CSM + lambda_max / 2
+    csm = fabs(100 * (1.0 - csm / op_order))
+    return csm, dir, None, None
+
+cpdef are_equal(double x, double y):
+    return abs(x-y) < 1e-9
+
+cpdef calc_plane_basis(Vector3D lambdas, Matrix3D vectors):
+    # We assume that the ith eigen value corresponds to the ith eigen vector
+    cdef int max_index = 0
+    for i in range(3):
+        if lambdas[i] > lambdas[max_index]:
+            max_index = i
+    is_ok = True
+    for i in range(3):
+        is_ok = is_ok and not are_equal(lambdas[i], lambdas[(i+1)%3])
+    if not is_ok:
+        # Vectors are not necessarily orthogonal
+        # Gram-Schmidt process
+        raise Exception("Gram")
+    cdef Vector3D v1 = Vector3D.zero()
+    cdef Vector3D v2 = Vector3D.zero()
+    for i in range(3):
+        v1.buf[i] = vectors.buf[(max_index+1)%3][i]
+        v2.buf[i] = vectors.buf[(max_index+2)%3][i]
+    return v1.to_numpy(), v2.to_numpy()
+
+cpdef calc_ref_plane(int op_order, bool is_op_cs, CalcState calc_state, bool
+                     need_plane=False):
     global log
     cdef int i
     cdef int j
@@ -239,4 +280,8 @@ cpdef calc_ref_plane(int op_order, bool is_op_cs, CalcState calc_state):
         print("final-csm:")
         print(str(csm))
 
-    return csm, dir.to_numpy()
+    if need_plane:
+        v1, v2 = calc_plane_basis(lambdas, m)
+        return csm, dir.to_numpy(), v1, v2
+    else:
+        return csm, dir.to_numpy(), None, None

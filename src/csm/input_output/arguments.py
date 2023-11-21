@@ -109,6 +109,8 @@ def _create_parser(cmd=''):
                             help='The maximal sn to try, relevant only for chirality')
         parser.add_argument("--pipe", action='store_true', default=False,
                             help="treat this program as a piped program (read from sys.stdin, write to sys.stdout)")
+        parser.add_argument("--prochirality", action='store_true', default=False,
+                            help="if using cs operation, gives a measure of prochirality.")
 
     def shared_normalization_utility_func(
             parser):  # I made this because having normalization stuck in the calc utility func was ugly
