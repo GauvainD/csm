@@ -1,3 +1,7 @@
+This fork adds the functionality to measure the prochirality of a molecule.
+
+Special thanks to Christophe Troestler for his precious help.
+
 # CSM
 
 # About
