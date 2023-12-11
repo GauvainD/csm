@@ -1,0 +1,17 @@
+from python:latest
+workdir /home/prochirality
+copy ./src/README.md ./
+copy ./src/csm ./csm
+copy ./src/FastCPPUtils ./FastCPPUtils
+copy ./src/__init__.py ./
+copy ./src/setup.py ./
+copy ./src/setup.cfg ./
+copy ./src/requirements.txt ./
+copy ./src/include ./include
+run apt update
+run apt install -y openbabel libopenbabel-dev swig
+run pip3 install --upgrade pip
+run pip3 install -r requirements.txt
+run python3 setup.py prepare
+run python3 setup.py build_ext
+run python3 setup.py install
