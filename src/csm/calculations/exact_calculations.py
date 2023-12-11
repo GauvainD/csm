@@ -123,6 +123,8 @@ class ExactCalculation(BaseCalculation):
         traced_state = CSMState(molecule=molecule, op_type=op_type, op_order=op_order)
         permuter.permute()
         for calc_state in permuter.permute():
+
+            #print(calc_state.perm)
             if permuter.count % 1000000 == 0:
                 print("calculated for", int(permuter.count / 1000000), "million permutations thus far...\t Time:",
                       run_time(self.start_time))
@@ -134,7 +136,8 @@ class ExactCalculation(BaseCalculation):
                 csm, dir, v1, v2 = calc_ref_plane_prochirality(op_order, calc_state, fixed_vectors[0],
                                             fixed_vectors[1])
 
-            print(csm, dir, v1, v2)
+
+            #print(csm, dir, v1, v2)
             if self.callback_func:
                 traced_state = traced_state._replace(csm=csm, perm=calc_state.perm, dir=dir)
                 traced_state.serial = permuter.count
@@ -172,10 +175,13 @@ class ExactCalculation(BaseCalculation):
         best_csm, zero_chirality, v1, v2 = self._calculate_internal(op, timeout,
                                                                     permuter,
                                                                     fixed_vectors)
+
+        print(prochirality, zero_chirality)
         if prochirality and zero_chirality:
+            print(f"Found symmetry {best_csm.dir}. Computing prochirality.")
             permuter = self._create_permuter(op, timeout)
             fixed_vectors=[v1, v2]
-            best_csm, zero_chirality, v1, v2 = self._calculate_internal(op, timeout,
+            best_csm, _, v1, v2 = self._calculate_internal(op, timeout,
                                                                         permuter,
                                                                         fixed_vectors)
 
@@ -185,11 +191,12 @@ class ExactCalculation(BaseCalculation):
             # failed to find csm value for any permutation
             # best_csm = best_csm._replace(csm=csm, dir=dir, perm=list(calc_state.perm))
             raise CSMValueError("Failed to calculate a csm value for %s %d" % (op_type, op_order), best_csm)
+        best_csm = best_csm._replace(is_chiral = not zero_chirality)
         return best_csm
 
     @staticmethod
-    def exact_calculation_for_approx(operation, molecule, perm):
-        ec = ExactCalculation(operation, molecule, perm=perm)
+    def exact_calculation_for_approx(operation, molecule, perm, prochirality=False):
+        ec = ExactCalculation(operation, molecule, perm=perm, prochirality=prochirality)
         if operation.type == 'CH':  # Chirality
             raise ValueError("How did you get here? Approx should be sending chirality broken down to cs, Sns")
 

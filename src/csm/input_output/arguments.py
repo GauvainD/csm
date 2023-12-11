@@ -272,6 +272,8 @@ def _create_parser(cmd=''):
     trivial_args.add_argument('--input-chain-perm', nargs="?", type=str, default=None, dest='chain_perm_file_name',
                               const=os.path.join(os.getcwd(), "chainperm.txt"),
                               help='Run calculation only on chain permutations in provided file. Default file location is current directory/chain_perm.txt')
+    trivial_args.add_argument("--prochirality", action='store_true', default=False,
+                            help="if using cs operation, gives a measure of prochirality.")
     shared_normalization_utility_func(trivial_args)
     add_input_output_utility_func(trivial_args_)
     return parser

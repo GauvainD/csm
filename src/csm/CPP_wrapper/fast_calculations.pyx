@@ -173,8 +173,9 @@ cpdef calc_ref_plane_prochirality(int op_order, CalcState calc_state, np.ndarray
     cdef double lambdas[2]
     fastcpp.GetEigens2D(<double (*)[3]>calc_state.A.buf, <double *>v1.data,
                         <double *>v2.data, <double (*)[2]>vectors, <double *>lambdas)
-    print(lambdas)
-    cpdef double lambda_max = lambdas[0];
+
+    #print(lambdas)
+    cdef double lambda_max = lambdas[0];
     index = 0
     if lambda_max < lambdas[1]:
         lambda_max = lambdas[1]
@@ -194,13 +195,16 @@ cpdef calc_plane_basis(Vector3D lambdas, Matrix3D vectors):
     for i in range(3):
         if lambdas[i] > lambdas[max_index]:
             max_index = i
+    #print(lambdas, vectors.to_numpy())
     is_ok = True
     for i in range(3):
         is_ok = is_ok and not are_equal(lambdas[i], lambdas[(i+1)%3])
     if not is_ok:
         # Vectors are not necessarily orthogonal
         # Gram-Schmidt process
-        raise Exception("Gram")
+
+        fastcpp.GramSchmidt(vectors.buf)
+    #print(lambdas, vectors.to_numpy())
     cdef Vector3D v1 = Vector3D.zero()
     cdef Vector3D v2 = Vector3D.zero()
     for i in range(3):

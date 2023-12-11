@@ -17,7 +17,8 @@ class CSMState(namedtuple('CSMState', ['molecule',
                                        'perm',
                                        'dir',
                                        'perm_count',
-                                       'num_invalid'])):
+                                       'num_invalid',
+                                       'is_chiral'])):
     pass
 
 
@@ -123,8 +124,8 @@ class Operation:
 
 class Result:
     def __repr__(self):
-        return_string = "{} CSM: {} Molecule: {}".format(self.__class__.__name__, self.csm,
-                                                         self.molecule.metadata.appellation())
+        return_string = "{} CSM: {} Molecule: {} (chiral: {})".format(self.__class__.__name__, self.csm,
+                                                         self.molecule.metadata.appellation(), self.is_chiral)
         return return_string
 
 
@@ -143,6 +144,7 @@ class CSMResult(Result):
         self.csm = state.csm
         self.dir = state.dir
         self.perm = state.perm
+        self.is_chiral = state.is_chiral
         self._normalized_symmetric_structure = self.create_symmetric_structure(self.molecule_coords(normalized=True),
                                                                               self.perm, self.dir, self.op_type,
                                                                               self.op_order)
@@ -305,6 +307,8 @@ class CSMResult(Result):
         else:
             silent_print("%s: %.6lf" % (self.operation.name, abs(self.csm)))
             silent_print("CSM by formula: %.6lf" % (self.formula_csm))
+        if self.is_chiral:
+            silent_print("Chiral")
 
     def to_dict(self):
         return_dict= {
@@ -319,6 +323,7 @@ class CSMResult(Result):
                 "normalized_symmetric_structure": [list(i) for i in self.symmetric_structure(normalized=True)],
                 "symmetric_structure": [list(i) for i in self.symmetric_structure()],
                 "formula_csm": self.formula_csm,
+                "is_chiral": self.is_chiral,
 
                 #"overall stats": self.overall_statistics,
                 #"ongoing stats": self.ongoing_statistics
@@ -335,7 +340,7 @@ class CSMResult(Result):
         molecule.normalize()
         operation = Operation.from_dict(result_dict["operation"])
         state = CSMState(molecule, operation.order, operation.type, result_dict["csm"], result_dict["perm"],
-                         result_dict["dir"])
+                         result_dict["dir"], is_chiral=result_dict["is_chiral"])
         result = CSMResult(state, operation, result_dict["overall stats"], result_dict["ongoing stats"])
         return result
 
@@ -357,6 +362,7 @@ class FailedResult(Result):
         self.csm = "n/a"
         self.dir = ["n/a", "n/a", "n/a"]
         self.perm = ["n/a"]
+        self.is_chiral = False
         self._normalized_symmetric_structure = []  # [["n/a"] for i in range(len(molecule))]
         self._symmetric_structure = []  # [[0,0,0] for i in range(len(molecule))]
         self.formula_csm = "n/a"

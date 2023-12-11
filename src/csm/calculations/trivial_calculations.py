@@ -20,7 +20,7 @@ class TrivialCalculation(BaseCalculation):
     If use-chains is specified, calculates the identity permutation of every possible chain permutation, returns best.
     """
 
-    def __init__(self, operation, molecule, use_chains=True, timeout=300, chain_perms=None, *args, **kwargs):
+    def __init__(self, operation, molecule, use_chains=True, timeout=300, chain_perms=None, prochirality=False, *args, **kwargs):
         """
         :param operation: instance of Operation class or named tuple, with fields for name and order, that describes the symmetry.
         :param molecule: instance of Molecule class on which the described symmetry calculation will be performed.
@@ -33,6 +33,7 @@ class TrivialCalculation(BaseCalculation):
         self.start_time = datetime.datetime.now()
         self.timeout = timeout
         self.chain_permutations=chain_perms
+        self.prochirality = prochirality
 
     def get_chain_perms(self, operation):
         if self.chain_permutations:
@@ -71,7 +72,7 @@ class TrivialCalculation(BaseCalculation):
                     t_chain = molecule.chains[chain_perm[f_index]]
                     for i in range(len(f_chain)):
                         perm[f_chain[i]] = t_chain[i]
-                result = ExactCalculation.exact_calculation_for_approx(operation, molecule, perm=perm)
+                result = ExactCalculation.exact_calculation_for_approx(operation, molecule, perm=perm, prochirality=self.prochirality)
                 if result.csm < best.csm:
                     best = result
                 self.statistics[operation.op_code][str(chain_perm)]={
@@ -81,7 +82,7 @@ class TrivialCalculation(BaseCalculation):
 
         else:
             perm = [i for i in range(len(molecule))]
-            best = ExactCalculation.exact_calculation_for_approx(operation, molecule, perm=perm)
+            best = ExactCalculation.exact_calculation_for_approx(operation, molecule, perm=perm, prochirality=self.prochirality)
             self.statistics["n/a"] = {
                 "csm":"n/a",
                 "dir":"n/a"

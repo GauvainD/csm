@@ -518,7 +518,11 @@ class SimpleContextWriter(ContextWriter):
     def write(self, mol_result):
         for lin_index, line_result in enumerate(mol_result):
             print("mol", line_result.molecule.metadata.appellation(), "cmd", lin_index + 1, " CSM: ",
-                  format_CSM(line_result.csm))
+                  format_CSM(line_result.csm), end="")
+            if line_result.is_chiral:
+                print(" (chiral)")
+            else:
+                print(" (not chiral)")
 
 
 class ScriptContextWriter(ContextWriter):

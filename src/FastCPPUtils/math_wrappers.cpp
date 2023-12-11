@@ -8,6 +8,7 @@
 #include <iostream>
 #include <vector>
 #include <complex>
+#include <cmath>
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
@@ -111,6 +112,24 @@ void GetEigens(const double matrix[3][3], double eigenVectors[3][3], double eige
 	}
 }
 
+void GramSchmidt(double m[3][3]) {
+    Eigen::Vector3d vectors[3];
+    for (int i = 0; i < 3; i++) {
+        Eigen::Vector3d v = Eigen::Vector3d(m[i][0],m[i][1],m[i][2]);
+        Eigen::Vector3d u = v;
+        for (int j = 0; j < i; j++) {
+            u = (u - vectors[j].dot(v) / vectors[j].dot(vectors[j]) * vectors[j]).eval();
+        }
+        vectors[i] = u;
+    }
+    for (int i = 0; i < 3; i++) {
+        vectors[i] = vectors[i] / sqrt(vectors[i].dot(vectors[i]));
+        for (int j = 0; j < 3; j++) {
+            m[i][j] = vectors[i](j);
+        }
+    }
+}
+
 void GetEigens2D(const double matrix[3][3], const double v1[3], const double v2[3], double eigenVectors[2][2], double eigenValues[2])
 {
 	Eigen::Matrix3d m;
@@ -119,28 +138,31 @@ void GetEigens2D(const double matrix[3][3], const double v1[3], const double v2[
 		{
 			//std::cout << "matij: " << matrix[i][j] << "\n";
 			m(i,j) = matrix[i][j];
-			std::cout << " " << m(i,j);
+
+			//std::cout << " " << m(i,j);
 		}
-        std::cout << "\n";
+        //std::cout << "\n";
     }
     Eigen::Vector3d vec1(v1);
     Eigen::Vector3d vec2(v2);
     Eigen::Matrix2d newM;
-    std::cout << "vec1 " << vec1 << "\n";
-    std::cout << "vec2 " << vec2 << "\n";
-    std::cout << "vec1.T * m " << vec1.transpose()*m << "\n";
-    std::cout << "vec1.T * m * vec2 " << (vec1.transpose()*m).dot(vec2) << "\n";
+
+    //std::cout << "vec1 " << vec1 << "\n";
+    //std::cout << "vec2 " << vec2 << "\n";
+    //std::cout << "vec1.T * m " << vec1.transpose()*m << "\n";
+    //std::cout << "vec1.T * m * vec2 " << (vec1.transpose()*m).dot(vec2) << "\n";
     newM(0,0) = (vec1.transpose() * m * vec1)(0);
     newM(0,1) = (vec1.transpose() * m * vec2)(0);
     newM(1,0) = (vec2.transpose() * m * vec1)(0);
     newM(1,1) = (vec2.transpose() * m * vec2)(0);
-	for (int i = 0; i < 2; i++) {
-		for (int j = 0; j < 2; j++)
-		{
-			std::cout << " " << newM(i,j);
-		}
-        std::cout << "\n";
-    }
+
+	//for (int i = 0; i < 2; i++) {
+	//	for (int j = 0; j < 2; j++)
+	//	{
+	//		std::cout << " " << newM(i,j);
+	//	}
+    //    std::cout << "\n";
+    //}
 
 	Eigen::EigenSolver<Eigen::Matrix2d> solver(newM, true);
 
